@@ -1,0 +1,12 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+      "outDir": "./public",                // 클라이언트측 JavaScript 출력
+      "moduleResolution": "node",
+      "module": "ESNext"
+    },
+    "include": [
+      "src/main.ts"                        // 클라이언트측 코드만 포함
+    ]
+  }
+  

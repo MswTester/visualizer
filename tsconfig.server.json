@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+      "outDir": "./dist",           // 서버측 JavaScript 출력
+    },
+    "include": [
+      "src/index.ts"                       // 서버측 코드만 포함
+    ]
+  }
+  

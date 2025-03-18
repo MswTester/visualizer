@@ -1,0 +1,33 @@
+{
+  "name": "visualizer",
+  "version": "1.0.0",
+  "description": "졸업작품 참여형 아트워크",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.client.json",
+    "dev": "concurrently \"tsc -p tsconfig.client.json -w\" \"tsc -p tsconfig.server.json -w\" \"nodemon dist/index.js\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MswTester/visualizer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MswTester/visualizer/issues"
+  },
+  "homepage": "https://github.com/MswTester/visualizer#readme",
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "concurrently": "^9.1.2",
+    "nodemon": "^3.1.9",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pixi.js": "^8.8.1",
+    "socket.io": "^4.8.1"
+  }
+}
