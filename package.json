@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "express": "^4.21.2",
+    "pixi-filters": "^6.1.2",
     "pixi.js": "^8.8.1",
     "socket.io": "^4.8.1"
   }
