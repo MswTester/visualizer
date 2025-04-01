@@ -2,192 +2,283 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>참여형 아트워크 - 모바일</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Visualizer - Mobile Control</title>
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <style>
         body {
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background-color: #000;
-            color: #fff;
-            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #1e2a3a, #0c121b);
+            color: #ffffff;
+            overflow: hidden;
+            touch-action: none;
         }
         
-        #status {
-            font-size: 1.2em;
-            margin-bottom: 30px;
-        }
-        
-        #data {
-            font-size: 0.9em;
-            color: #aaa;
-            margin-top: 20px;
+        .container {
+            width: 90%;
+            max-width: 500px;
             text-align: center;
         }
         
-        #instructions {
-            margin-top: 40px;
-            padding: 20px;
-            max-width: 80%;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .status {
+            margin: 15px 0;
+            padding: 15px;
             border-radius: 8px;
+            background-color: rgba(0, 0, 0, 0.2);
+            font-size: 16px;
         }
         
-        .circle {
-            width: 180px;
-            height: 180px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(70,130,255,1) 0%, rgba(30,60,200,1) 100%);
+        .gyro-data {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5em;
-            color: white;
-            text-shadow: 0px 0px 5px rgba(0,0,0,0.5);
-            box-shadow: 0 0 20px rgba(70,130,255,0.8);
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+        
+        .gyro-value {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .value {
+            font-weight: bold;
+            color: #4cceef;
+        }
+        
+        .permission-button {
+            background-color: #4cceef;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+        
+        .permission-button:hover {
+            background-color: #3bb8d8;
+        }
+        
+        .visual-indicator {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4cceef, #3bb8d8);
+            margin: 20px auto;
             position: relative;
             overflow: hidden;
+            transform-style: preserve-3d;
+            box-shadow: 0 0 20px rgba(76, 206, 239, 0.5);
         }
         
-        .circle::after {
-            content: '';
+        .indicator-dot {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 50%);
+            width: 20px;
+            height: 20px;
+            background-color: white;
             border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out;
         }
         
-        .wave {
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            border-radius: 45%;
-            background: rgba(255, 255, 255, 0.2);
-            animation: wave 5s infinite linear;
-        }
-        
-        .wave:nth-child(2) {
-            animation-delay: -2.5s;
-        }
-        
-        @keyframes wave {
-            0% {
-                transform: translate(-50%, -50%) rotate(0deg) scale(0.5);
-                opacity: 0.8;
+        @media (max-height: 600px) {
+            .visual-indicator {
+                width: 150px;
+                height: 150px;
             }
-            100% {
-                transform: translate(-50%, -50%) rotate(360deg) scale(1);
-                opacity: 0;
+            h1 {
+                font-size: 20px;
+                margin-bottom: 10px;
             }
         }
     </style>
 </head>
 <body>
-    <div id="status">연결 중...</div>
-    
-    <div class="circle">
-        <div class="wave"></div>
-        <div class="wave"></div>
-        참여중
-    </div>
-    
-    <div id="data"></div>
-    
-    <div id="instructions">
-        <h3>사용 방법</h3>
-        <p>기기를 움직이면 메인 화면에 있는 도형에 영향을 줍니다.</p>
-        <p>더 많은 사람들이 참여할수록 더 복잡하고 아름다운 패턴이 형성됩니다.</p>
+    <div class="container">
+        <h1>Visualizer 모바일 컨트롤</h1>
+        
+        <div class="status" id="connection-status">연결 중...</div>
+        
+        <div class="visual-indicator" id="visual-indicator">
+            <div class="indicator-dot" id="indicator-dot"></div>
+        </div>
+        
+        <div class="gyro-data">
+            <div class="gyro-value">
+                <span>Alpha (회전):</span>
+                <span class="value" id="alpha-value">0°</span>
+            </div>
+            <div class="gyro-value">
+                <span>Beta (앞/뒤 기울기):</span>
+                <span class="value" id="beta-value">0°</span>
+            </div>
+            <div class="gyro-value">
+                <span>Gamma (좌/우 기울기):</span>
+                <span class="value" id="gamma-value">0°</span>
+            </div>
+        </div>
+        
+        <button class="permission-button" id="permission-button">
+            자이로스코프 접근 허용
+        </button>
     </div>
     
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const statusElement = document.getElementById('status');
-            const dataElement = document.getElementById('data');
-            
-            // 소켓 연결
+        document.addEventListener('DOMContentLoaded', () => {
             const socket = io();
+            const connectionStatus = document.getElementById('connection-status');
+            const permissionButton = document.getElementById('permission-button');
+            const alphaValue = document.getElementById('alpha-value');
+            const betaValue = document.getElementById('beta-value');
+            const gammaValue = document.getElementById('gamma-value');
+            const indicatorDot = document.getElementById('indicator-dot');
             
-            // 연결 이벤트
-            socket.on('connect', function() {
-                statusElement.textContent = '연결됨!';
-                statusElement.style.color = '#4caf50';
-                
-                // 모바일 클라이언트로 식별
+            let gyroscopeAvailable = false;
+            let gyroscopePermission = false;
+            
+            // 소켓 연결 처리
+            socket.on('connect', () => {
+                connectionStatus.textContent = '연결됨';
+                connectionStatus.style.backgroundColor = 'rgba(76, 206, 239, 0.2)';
                 socket.emit('setClientType', 'mobile');
+            });
+            
+            socket.on('disconnect', () => {
+                connectionStatus.textContent = '연결 끊김';
+                connectionStatus.style.backgroundColor = 'rgba(255, 69, 0, 0.2)';
+            });
+            
+            // 디바이스 모션 이벤트 지원 확인
+            if (window.DeviceOrientationEvent) {
+                gyroscopeAvailable = true;
                 
-                // 자이로스코프 사용 권한 요청
-                if (window.DeviceOrientationEvent) {
-                    // iOS 13+ 기기는 권한 요청 필요
-                    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                        // 사용자 상호작용 필요
-                        document.body.addEventListener('click', function() {
-                            DeviceOrientationEvent.requestPermission()
-                                .then(function(permissionState) {
-                                    if (permissionState === 'granted') {
-                                        setupDeviceOrientation();
-                                    } else {
-                                        statusElement.textContent = '자이로스코프 접근 권한이 필요합니다';
-                                        statusElement.style.color = '#f44336';
-                                    }
-                                })
-                                .catch(console.error);
-                        }, { once: true });
-                        
-                        statusElement.textContent = '화면을 클릭하여 자이로스코프 접근 권한을 허용하세요';
-                    } else {
-                        // 안드로이드 및 기타 기기
-                        setupDeviceOrientation();
-                    }
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    // iOS 13+ 권한 요청 필요
+                    permissionButton.addEventListener('click', async () => {
+                        try {
+                            const permission = await DeviceOrientationEvent.requestPermission();
+                            if (permission === 'granted') {
+                                startGyroscope();
+                                permissionButton.style.display = 'none';
+                            }
+                        } catch (error) {
+                            console.error('자이로스코프 권한 오류:', error);
+                            connectionStatus.textContent = '자이로스코프 권한 오류';
+                            connectionStatus.style.backgroundColor = 'rgba(255, 69, 0, 0.2)';
+                        }
+                    });
                 } else {
-                    statusElement.textContent = '이 기기는 자이로스코프를 지원하지 않습니다';
-                    statusElement.style.color = '#f44336';
+                    // 권한 요청이 필요 없는 기기
+                    startGyroscope();
+                    permissionButton.style.display = 'none';
                 }
-            });
+            } else {
+                // 자이로스코프 지원하지 않음
+                connectionStatus.textContent = '자이로스코프가 지원되지 않는 기기입니다';
+                connectionStatus.style.backgroundColor = 'rgba(255, 69, 0, 0.2)';
+                permissionButton.style.display = 'none';
+            }
             
-            // 연결 해제 이벤트
-            socket.on('disconnect', function() {
-                statusElement.textContent = '연결 끊김, 재연결 중...';
-                statusElement.style.color = '#ff9800';
-            });
+            function startGyroscope() {
+                gyroscopePermission = true;
+                connectionStatus.textContent = '자이로스코프 활성화됨';
+                connectionStatus.style.backgroundColor = 'rgba(50, 205, 50, 0.2)';
+                
+                window.addEventListener('deviceorientation', handleOrientation);
+                window.addEventListener('keydown', handleKeyOrientation)
+            }
             
-            // 자이로스코프 데이터 설정
-            function setupDeviceOrientation() {
-                statusElement.textContent = '참여 중...';
+            function handleOrientation(event) {
+                const alpha = event.alpha ? Math.round(event.alpha) : 0;
+                const beta = event.beta ? Math.round(event.beta) : 0;
+                const gamma = event.gamma ? Math.round(event.gamma) : 0;
+
+                handleMotion(alpha, beta, gamma);
+            }
+
+            function convertToNumFromDegrees(str) {
+                return parseFloat(str.replace("°", ""))
+            }
+
+            function handleKeyOrientation(event) {
+                let alpha = convertToNumFromDegrees(alphaValue.textContent);
+                let beta = convertToNumFromDegrees(betaValue.textContent);
+                let gamma = convertToNumFromDegrees(gammaValue.textContent);
+
+                switch(event.code){
+                    case "KeyQ":
+                        alpha += 1
+                        break;
+                    case "KeyW":
+                        beta += 1
+                        break;
+                    case "KeyE":
+                        gamma += 1
+                        break;
+                    case "KeyA":
+                        alpha -= 1
+                        break;
+                    case "KeyS":
+                        beta -= 1
+                        break;
+                    case "KeyD":
+                        gamma -= 1
+                        break;
+                }
+
+                handleMotion(alpha, beta, gamma);
+            }
+
+            function handleMotion(alpha, beta, gamma){
+                // UI 업데이트
+                alphaValue.textContent = `${alpha}°`;
+                betaValue.textContent = `${beta}°`;
+                gammaValue.textContent = `${gamma}°`;
                 
-                // 제한된 속도로 데이터 전송 (100ms마다 한 번)
-                let lastSent = 0;
-                const THROTTLE_MS = 100;
+                // 인디케이터 업데이트
+                updateVisualIndicator(beta, alpha);
                 
-                window.addEventListener('deviceorientation', function(event) {
-                    const now = Date.now();
-                    
-                    // 데이터 표시 업데이트
-                    dataElement.textContent = `α: ${Math.round(event.alpha)}° β: ${Math.round(event.beta)}° γ: ${Math.round(event.gamma)}°`;
-                    
-                    // 전송 속도 조절
-                    if (now - lastSent > THROTTLE_MS) {
-                        lastSent = now;
-                        
-                        // 데이터 전송
-                        socket.emit('gyroscopeData', {
-                            alpha: event.alpha,  // z축 회전 (0-360)
-                            beta: event.beta,    // x축 회전 (-180-180)
-                            gamma: event.gamma   // y축 회전 (-90-90)
-                        });
-                    }
-                });
+                // 서버로 데이터 전송
+                if (socket.connected) {
+                    socket.emit('gyroscopeData', {
+                        alpha: alpha,
+                        beta: beta,
+                        gamma: gamma
+                    });
+                }
+            }
+            
+            function updateVisualIndicator(beta, gamma) {
+                // 범위 제한
+                const limitedBeta = Math.max(-45, Math.min(45, beta));
+                const limitedGamma = Math.max(-45, Math.min(45, gamma));
+                
+                // 인디케이터 이동
+                const x = (limitedGamma / 45) * 40;
+                const y = (limitedBeta / 45) * 40;
+                
+                indicatorDot.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
             }
         });
     </script>
 </body>
-</html> 
+</html>
