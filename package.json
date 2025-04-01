@@ -4,7 +4,7 @@
   "description": "3D visualization with gyroscope and mouse control",
   "main": "src/index.ts",
   "scripts": {
-    "build": "node build.js",
+    "build": "tsc -p tsconfig.client.json && tsc -p tsconfig.server.json",
     "build:watch": "tsc -p tsconfig.json --watch",
     "start": "node dist/index.js",
     "dev": "concurrently \"tsc -w -p tsconfig.client.json\" \"nodemon dist/index.js\""
