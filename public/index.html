@@ -12,27 +12,24 @@
 </head>
 <body>
     <div id="qr-container">
-        <div id="qr-code"></div>
+        <canvas id="qr-code"></canvas>
         <div id="qr-text">모바일로 참여하기</div>
     </div>
     <script src="main.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 현재 URL을 기반으로 모바일 참여 URL 생성
+            // QR 코드 생성 (간단한 방법으로 대체)
+            const qrCodeDiv = document.getElementById('qr-code');
             const currentURL = window.location.origin;
             const mobileURL = currentURL + '/mobile';
-            
-            // QR 코드 생성
-            QRCode.toCanvas(document.getElementById('qr-code'), mobileURL, {
-                width: 80,
-                margin: 1,
-                color: {
-                    dark: '#ffffff',
-                    light: '#00000000'
-                }
-            }, function (error) {
-                if (error) console.error(error);
-            });
+
+            QRCode.toCanvas(qrCodeDiv, mobileURL, (err) => {
+                if(err) console.error(err)
+                console.log("success!")
+            })
+
+            // 배경 이미지로 설정
+            // qrCodeDiv.style.backgroundImage = `url('${qrUrl}')`;
         });
     </script>
 </body>

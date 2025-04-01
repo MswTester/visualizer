@@ -13,7 +13,6 @@ const CONFIG = {
         MAX_Z: -100,
         ZOOM_SENSITIVITY: 0.1
     },
-    
     // 중앙 구체 설정
     CENTER_SPHERE: {
         RADIUS: 120,
@@ -70,14 +69,7 @@ const CONFIG = {
     
     // 배경 그라데이션 설정
     BACKGROUND: {
-        BASE_COLORS: [0x0a001f, 0x060042, 0x1a0065], // 어두운 보라색/파란색 베이스
-        ACCENT_COLORS: [0x5000ff, 0x00a4ff, 0xff00a8], // 밝은 보라, 파랑, 핑크 악센트
-        MIN_ALPHA: 0.2, // 최소 투명도 (기본)
-        MAX_ALPHA: 0.8, // 최대 투명도 (최대 사용자 연결 시)
-        GRADIENT_SCALE: 1.8, // 그라데이션 스케일
-        ANIMATION_SPEED: 0.001, // 그라데이션 애니메이션 속도
-        MAX_USERS_FOR_INTENSITY: 5, // 최대 강도에 도달하는 사용자 수
-        NOISE_INTENSITY: 0.1 // 그라데이션에 추가되는 노이즈 강도
+        MAX_USERS_FOR_INTENSITY: 5 // 최대 강도에 도달하는 사용자 수
     },
 };
 
@@ -218,18 +210,16 @@ async function initApp() {
 
     document.body.appendChild(app.canvas);
 
+    // 배경 그라데이션을 위한 DOM 요소 생성
+    const backgroundElement = document.createElement('div');
+    backgroundElement.id = 'gradient-background';
+    // canvas 앞에 삽입하여 z-index 순서 조정
+    document.body.insertBefore(backgroundElement, app.canvas);
+
     // 메인 컨테이너 생성
     const container = new PIXI.Container();
     app.stage.addChild(container);
     container.position.set(app.screen.width / 2, app.screen.height / 2);
-    
-    // 배경 그라데이션 컨테이너 (전체 화면)
-    const backgroundContainer = new PIXI.Container();
-    app.stage.addChildAt(backgroundContainer, 0); // 가장 뒤에 배치
-    
-    // 그라데이션 배경 그래픽
-    const backgroundGradient = new PIXI.Graphics();
-    backgroundContainer.addChild(backgroundGradient);
     
     // 시간 기반 애니메이션 변수
     let gradientTime = 0;
@@ -387,6 +377,9 @@ async function initApp() {
         
         // 처음 연결된 사용자라면 포인트 초기화
         initUserSpherePoints(connectedUsers[connectedUsers.length - 1]);
+        
+        // 사용자 연결 시 배경 업데이트
+        updateBackgroundIntensity();
     });
 
     socket.on('userDisconnected', (userId: string) => {
@@ -398,6 +391,9 @@ async function initApp() {
             }
             connectedUsers.splice(index, 1);
         }
+        
+        // 사용자 연결 해제 시 배경 업데이트
+        updateBackgroundIntensity();
     });
 
     // 자이로스코프 데이터 수신 처리
@@ -454,9 +450,6 @@ async function initApp() {
             // 너무 높은 델타타임(낮은 FPS)일 경우 적절히 조절
             ticker.deltaTime = 2;
         }
-        
-        // 그라데이션 배경 업데이트
-        updateGradientBackground(ticker.deltaTime, app);
         
         // 구체 자동 회전 (마우스 인터랙션이 없을 때만)
         if (!mouseDown) {
@@ -927,94 +920,10 @@ async function initApp() {
         });
     }
 
-    // 그라데이션 배경 업데이트 함수
-    function updateGradientBackground(deltaTime: number, app: any) {
-        // 그라데이션 시간 업데이트 (부드러운 애니메이션을 위해)
-        gradientTime += CONFIG.BACKGROUND.ANIMATION_SPEED * deltaTime;
-        
-        // 배경 그래픽 지우기
-        backgroundGradient.clear();
-        
-        // 연결된 사용자 수에 따른 강도 계산 (0~1 범위)
+    // 사용자 수에 따른 배경 강도 업데이트
+    function updateBackgroundIntensity() {
         const userIntensity = Math.min(connectedUsers.length / CONFIG.BACKGROUND.MAX_USERS_FOR_INTENSITY, 1);
-        
-        // 알파값 계산 (사용자가 많을수록 더 뚜렷해짐)
-        const alpha = CONFIG.BACKGROUND.MIN_ALPHA + (CONFIG.BACKGROUND.MAX_ALPHA - CONFIG.BACKGROUND.MIN_ALPHA) * userIntensity;
-        
-        // 캔버스 크기
-        const width = app.screen.width;
-        const height = app.screen.height;
-        
-        // 그라데이션 중심 위치 (시간에 따라 약간 움직임)
-        const centerX = width / 2 + Math.sin(gradientTime * 0.3) * width * 0.1;
-        const centerY = height / 2 + Math.cos(gradientTime * 0.2) * height * 0.1;
-        
-        // 그라데이션 반경 (사용자가 많을수록 커짐)
-        const radius = Math.max(width, height) * CONFIG.BACKGROUND.GRADIENT_SCALE * (0.8 + userIntensity * 0.4);
-        
-        // 색상 선택 (시간에 따라 변화)
-        const baseColorIndex = Math.floor(gradientTime * 0.2) % CONFIG.BACKGROUND.BASE_COLORS.length;
-        const accentColorIndex = Math.floor(gradientTime * 0.3) % CONFIG.BACKGROUND.ACCENT_COLORS.length;
-        
-        const baseColor = CONFIG.BACKGROUND.BASE_COLORS[baseColorIndex];
-        const accentColor = CONFIG.BACKGROUND.ACCENT_COLORS[accentColorIndex];
-        
-        // 그라데이션 그리기
-        backgroundGradient.beginFill(0x000000, 1); // 검은색 기본 배경
-        backgroundGradient.drawRect(0, 0, width, height);
-        backgroundGradient.endFill();
-        
-        // 몽환적인 그라데이션 첫 번째 레이어
-        const gradientFill1 = new PIXI.FillGradient(
-            centerX, centerY, 0, // 시작 위치와 각도
-            [
-                { offset: 0, color: accentColor, alpha: alpha * 0.7 },
-                { offset: 0.5, color: baseColor, alpha: alpha * 0.4 },
-                { offset: 1, color: 0x000000, alpha: 0 }
-            ]
-        );
-        
-        backgroundGradient.beginFill(gradientFill1);
-        backgroundGradient.drawCircle(centerX, centerY, radius);
-        backgroundGradient.endFill();
-        
-        // 두 번째 레이어 (다른 위치에 더 작은 그라데이션)
-        const offsetX = Math.sin(gradientTime * 0.5) * width * 0.2;
-        const offsetY = Math.cos(gradientTime * 0.4) * height * 0.2;
-        
-        const secondBaseColor = CONFIG.BACKGROUND.BASE_COLORS[(baseColorIndex + 1) % CONFIG.BACKGROUND.BASE_COLORS.length];
-        const secondAccentColor = CONFIG.BACKGROUND.ACCENT_COLORS[(accentColorIndex + 2) % CONFIG.BACKGROUND.ACCENT_COLORS.length];
-        
-        const gradientFill2 = new PIXI.FillGradient(
-            centerX + offsetX, centerY + offsetY, 0,
-            [
-                { offset: 0, color: secondAccentColor, alpha: alpha * 0.5 },
-                { offset: 0.5, color: secondBaseColor, alpha: alpha * 0.3 },
-                { offset: 1, color: 0x000000, alpha: 0 }
-            ]
-        );
-        
-        backgroundGradient.beginFill(gradientFill2);
-        backgroundGradient.drawCircle(centerX + offsetX, centerY + offsetY, radius * 0.6);
-        backgroundGradient.endFill();
-        
-        // 세 번째 레이어 (작은 악센트 그라데이션)
-        const thirdOffsetX = Math.cos(gradientTime * 0.7) * width * 0.15;
-        const thirdOffsetY = Math.sin(gradientTime * 0.6) * height * 0.15;
-        
-        const thirdAccentColor = CONFIG.BACKGROUND.ACCENT_COLORS[(accentColorIndex + 1) % CONFIG.BACKGROUND.ACCENT_COLORS.length];
-        
-        const gradientFill3 = new PIXI.FillGradient(
-            centerX - thirdOffsetX, centerY - thirdOffsetY, 0,
-            [
-                { offset: 0, color: thirdAccentColor, alpha: alpha * 0.4 },
-                { offset: 0.7, color: 0x000000, alpha: 0 }
-            ]
-        );
-        
-        backgroundGradient.beginFill(gradientFill3);
-        backgroundGradient.drawCircle(centerX - thirdOffsetX, centerY - thirdOffsetY, radius * 0.3);
-        backgroundGradient.endFill();
+        backgroundElement.style.opacity = (0.3 + userIntensity * 0.7).toString();
     }
 
     window.addEventListener('resize', () => {

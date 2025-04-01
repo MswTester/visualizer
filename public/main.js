@@ -1,8 +1,71 @@
 "use strict";
+// 설정 상수 - 모든 조절 가능한 값을 여기에 집중
+const CONFIG = {
+    // 카메라 설정
+    CAMERA: {
+        INITIAL_Z: -250,
+        FOV: 60,
+        MIN_Z: -500,
+        MAX_Z: -100,
+        ZOOM_SENSITIVITY: 0.1
+    },
+    // 중앙 구체 설정
+    CENTER_SPHERE: {
+        RADIUS: 120,
+        SEGMENTS: 15,
+        AUTO_ROTATION_X: 0.005,
+        AUTO_ROTATION_Y: 0.01,
+        AUTO_ROTATION_Z: 0.003,
+        MOUSE_SENSITIVITY: 0.01
+    },
+    // 사용자 구체 설정
+    USER_SPHERE: {
+        RADIUS: 25,
+        SEGMENTS: 12,
+        ORBIT_RADIUS: 200,
+        MIN_DISTANCE: 20,
+        MAX_DISTANCE: 80,
+        DEFAULT_DISTANCE: 50,
+        ROTATION_SENSITIVITY: 0.02,
+        BETA_MULTIPLIER: 0.5
+    },
+    // 트레일 효과 설정
+    TRAIL: {
+        MAX_COUNT: 100,
+        LIFE_SPAN: 1,
+        SIZE: 2,
+        ALPHA: 0.3,
+        LINE_WIDTH_MULTIPLIER: 1.2,
+        SURFACE_OFFSET: 10,
+        CONTROL_POINTS: 3,
+        DEVIATION_FACTOR: 0.5,
+        TENSION: 0.5,
+        TRAILS_PER_FRAME: 2
+    },
+    // Glow 효과 설정
+    GLOW: {
+        USER_LAYERS: 3,
+        USER_ALPHA_BASE: 0.3,
+        USER_ALPHA_STEP: 0.05,
+        USER_BLUR_BASE: 3,
+        USER_BLUR_STEP: 3,
+        USER_BLUR_QUALITY: 4,
+        CENTER_LAYERS: 4,
+        CENTER_ALPHA_BASE: 0.2,
+        CENTER_ALPHA_STEP: 0.03,
+        CENTER_BLUR_STEP: 2
+    },
+    // 사용자 색상
+    USER_COLORS: [0xFF4500, 0x00BFFF, 0xFF1493, 0xFFD700, 0x32CD32, 0xDA70D6, 0x20B2AA],
+    // 배경 그라데이션 설정
+    BACKGROUND: {
+        MAX_USERS_FOR_INTENSITY: 5 // 최대 강도에 도달하는 사용자 수
+    },
+};
 const connectedUsers = [];
 // 다중 블러를 사용한 Glow 효과 생성을 위한 클래스
 class GlowFilter {
-    constructor(container, baseObject, color, layerCount = 3) {
+    constructor(container, baseObject, color, layerCount = CONFIG.GLOW.USER_LAYERS) {
         this.layers = [];
         this.container = container;
         this.baseObject = baseObject;
@@ -12,11 +75,11 @@ class GlowFilter {
         // 블러 레이어 생성
         for (let i = 0; i < layerCount; i++) {
             const layer = this.baseObject.clone();
-            layer.alpha = 0.3 - (i * 0.05); // 바깥쪽 레이어일수록 투명도 감소
+            layer.alpha = CONFIG.GLOW.USER_ALPHA_BASE - (i * CONFIG.GLOW.USER_ALPHA_STEP); // 바깥쪽 레이어일수록 투명도 감소
             // 각 레이어마다 다른 블러 강도 적용
             const blurFilter = new PIXI.BlurFilter();
-            blurFilter.blur = 3 + (i * 3); // 바깥쪽 레이어일수록 블러 강도 증가
-            blurFilter.quality = 4; // 성능 최적화를 위해 품질 조정
+            blurFilter.blur = CONFIG.GLOW.USER_BLUR_BASE + (i * CONFIG.GLOW.USER_BLUR_STEP); // 바깥쪽 레이어일수록 블러 강도 증가
+            blurFilter.quality = CONFIG.GLOW.USER_BLUR_QUALITY; // 성능 최적화를 위해 품질 조정
             layer.filters = [blurFilter];
             // 블러 레이어를 원본 객체 뒤에 추가
             this.layers.push(layer);
@@ -72,18 +135,25 @@ async function initApp() {
         antialias: true,
     });
     document.body.appendChild(app.canvas);
+    // 배경 그라데이션을 위한 DOM 요소 생성
+    const backgroundElement = document.createElement('div');
+    backgroundElement.id = 'gradient-background';
+    // canvas 앞에 삽입하여 z-index 순서 조정
+    document.body.insertBefore(backgroundElement, app.canvas);
     // 메인 컨테이너 생성
     const container = new PIXI.Container();
     app.stage.addChild(container);
     container.position.set(app.screen.width / 2, app.screen.height / 2);
+    // 시간 기반 애니메이션 변수
+    let gradientTime = 0;
     // 궤도 오브젝트를 위한 컨테이너
     const orbitContainer = new PIXI.Container();
     container.addChild(orbitContainer);
     let camera = {
         x: 0,
         y: 0,
-        z: -250,
-        fov: 60,
+        z: CONFIG.CAMERA.INITIAL_Z,
+        fov: CONFIG.CAMERA.FOV,
         aspect: app.screen.width / app.screen.height,
         yaw: 0,
         pitch: 0,
@@ -92,8 +162,8 @@ async function initApp() {
         x: 0,
         y: 0,
         z: 0,
-        radius: 120,
-        segments: 15,
+        radius: CONFIG.CENTER_SPHERE.RADIUS,
+        segments: CONFIG.CENTER_SPHERE.SEGMENTS,
         rotation: {
             x: 0,
             y: 0,
@@ -123,8 +193,8 @@ async function initApp() {
             if (mouseDown) {
                 const deltaX = e.clientX - mouseX;
                 const deltaY = e.clientY - mouseY;
-                centerSphere.rotation.y += deltaX * 0.01;
-                centerSphere.rotation.x += deltaY * 0.01;
+                centerSphere.rotation.y += deltaX * CONFIG.CENTER_SPHERE.MOUSE_SENSITIVITY;
+                centerSphere.rotation.x += deltaY * CONFIG.CENTER_SPHERE.MOUSE_SENSITIVITY;
                 mouseX = e.clientX;
                 mouseY = e.clientY;
             }
@@ -132,9 +202,9 @@ async function initApp() {
         // 마우스 휠 이벤트로 줌 인/아웃
         app.canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
-            camera.z += e.deltaY * 0.1;
+            camera.z += e.deltaY * CONFIG.CAMERA.ZOOM_SENSITIVITY;
             // 너무 가깝거나 멀어지지 않도록 제한
-            camera.z = Math.max(-500, Math.min(-100, camera.z));
+            camera.z = Math.max(CONFIG.CAMERA.MIN_Z, Math.min(CONFIG.CAMERA.MAX_Z, camera.z));
         });
     }
     else {
@@ -154,8 +224,8 @@ async function initApp() {
             if (mouseDown && e.touches.length === 1) {
                 const deltaX = e.touches[0].clientX - mouseX;
                 const deltaY = e.touches[0].clientY - mouseY;
-                centerSphere.rotation.y += deltaX * 0.01;
-                centerSphere.rotation.x += deltaY * 0.01;
+                centerSphere.rotation.y += deltaX * CONFIG.CENTER_SPHERE.MOUSE_SENSITIVITY;
+                centerSphere.rotation.x += deltaY * CONFIG.CENTER_SPHERE.MOUSE_SENSITIVITY;
                 mouseX = e.touches[0].clientX;
                 mouseY = e.touches[0].clientY;
             }
@@ -169,9 +239,8 @@ async function initApp() {
     socket.on('userConnected', (userId) => {
         console.log('새 사용자 연결됨:', userId);
         // 색상 선택
-        const userColors = [0xFF4500, 0x00BFFF, 0xFF1493, 0xFFD700, 0x32CD32, 0xDA70D6, 0x20B2AA];
-        const colorIndex = connectedUsers.length % userColors.length;
-        const color = userColors[colorIndex];
+        const colorIndex = connectedUsers.length % CONFIG.USER_COLORS.length;
+        const color = CONFIG.USER_COLORS[colorIndex];
         // 새로운 방식: 궤도 객체도 3D 구체로 생성
         const userSphereContainer = new PIXI.Container();
         const userGraphics = new PIXI.Graphics();
@@ -182,12 +251,12 @@ async function initApp() {
         // 궤도 원을 위한 컨테이너
         orbitContainer.addChild(userSphereContainer);
         // Glow 효과 적용
-        const orbitGlow = new GlowFilter(userSphereContainer, userGraphics, color, 3);
+        const orbitGlow = new GlowFilter(userSphereContainer, userGraphics, color, CONFIG.GLOW.USER_LAYERS);
         // 사용자 정보 저장 - 이제 3D 구체 정보 포함
         connectedUsers.push({
             id: userId,
             orbit: { alpha: 0, beta: 0, gamma: 0 },
-            distance: 20 + Math.random() * 10,
+            distance: CONFIG.USER_SPHERE.MIN_DISTANCE + Math.random() * 10,
             angle: Math.random() * Math.PI * 2,
             speed: 0.01,
             orbitGraphics: orbitGlow,
@@ -197,8 +266,8 @@ async function initApp() {
                 x: 0,
                 y: 0,
                 z: 0,
-                radius: 25, // 10에서 25로 증가
-                segments: 12, // 8에서 12로 증가하여 더 부드럽게
+                radius: CONFIG.USER_SPHERE.RADIUS,
+                segments: CONFIG.USER_SPHERE.SEGMENTS,
                 rotation: { x: 0, y: 0, z: 0 },
                 colors: [color],
                 points: []
@@ -206,6 +275,8 @@ async function initApp() {
         });
         // 처음 연결된 사용자라면 포인트 초기화
         initUserSpherePoints(connectedUsers[connectedUsers.length - 1]);
+        // 사용자 연결 시 배경 업데이트
+        updateBackgroundIntensity();
     });
     socket.on('userDisconnected', (userId) => {
         const index = connectedUsers.findIndex(user => user.id === userId);
@@ -216,6 +287,8 @@ async function initApp() {
             }
             connectedUsers.splice(index, 1);
         }
+        // 사용자 연결 해제 시 배경 업데이트
+        updateBackgroundIntensity();
     });
     // 자이로스코프 데이터 수신 처리
     socket.on('gyroscopeData', (data) => {
@@ -226,29 +299,27 @@ async function initApp() {
             user.orbit.beta = data.beta;
             user.orbit.gamma = data.gamma;
             // 회전 값 설정 - 각 유저의 구체가 자이로스코프 방향에 맞게 회전
-            user.orbitSphere.rotation.x = data.beta * 0.02;
-            user.orbitSphere.rotation.y = data.gamma * 0.02;
-            user.orbitSphere.rotation.z = data.alpha * 0.02;
+            user.orbitSphere.rotation.x = data.beta * CONFIG.USER_SPHERE.ROTATION_SENSITIVITY;
+            user.orbitSphere.rotation.y = data.gamma * CONFIG.USER_SPHERE.ROTATION_SENSITIVITY;
+            user.orbitSphere.rotation.z = data.alpha * CONFIG.USER_SPHERE.ROTATION_SENSITIVITY;
             // 베타값에 따른 거리 조정만 유지
-            user.distance = Math.max(20, Math.min(80, 50));
+            user.distance = Math.max(CONFIG.USER_SPHERE.MIN_DISTANCE, Math.min(CONFIG.USER_SPHERE.MAX_DISTANCE, CONFIG.USER_SPHERE.DEFAULT_DISTANCE));
         }
     });
     const sphereGraphics = new PIXI.Graphics();
     container.addChild(sphereGraphics);
     // 구체 glow 효과를 위한 레이어 생성
     const sphereLayers = [];
-    const layerCount = 4;
-    for (let i = 0; i < layerCount; i++) {
+    for (let i = 0; i < CONFIG.GLOW.CENTER_LAYERS; i++) {
         const sphereLayer = new PIXI.Graphics();
-        sphereLayer.alpha = 0.2 - (i * 0.03);
-        const blurFilter = new PIXI.BlurFilter(i * 2);
+        sphereLayer.alpha = CONFIG.GLOW.CENTER_ALPHA_BASE - (i * CONFIG.GLOW.CENTER_ALPHA_STEP);
+        const blurFilter = new PIXI.BlurFilter(i * CONFIG.GLOW.CENTER_BLUR_STEP);
         sphereLayer.filters = [blurFilter];
         container.addChildAt(sphereLayer, 0);
         sphereLayers.push(sphereLayer);
     }
     // 트레일 효과를 위한 배열 및 타입 정의 수정
     const trails = [];
-    const MAX_TRAILS = 100; // 최대 트레일 개수 (성능 최적화)
     // 애니메이션 루프
     app.ticker.add((ticker) => {
         // fps 조절 (성능 최적화)
@@ -259,9 +330,9 @@ async function initApp() {
         // 구체 자동 회전 (마우스 인터랙션이 없을 때만)
         if (!mouseDown) {
             // 모바일 연결과 상관없이 항상 회전하도록 수정
-            centerSphere.rotation.x += 0.005 * ticker.deltaTime;
-            centerSphere.rotation.y += 0.01 * ticker.deltaTime;
-            centerSphere.rotation.z += 0.003 * ticker.deltaTime;
+            centerSphere.rotation.x += CONFIG.CENTER_SPHERE.AUTO_ROTATION_X * ticker.deltaTime;
+            centerSphere.rotation.y += CONFIG.CENTER_SPHERE.AUTO_ROTATION_Y * ticker.deltaTime;
+            centerSphere.rotation.z += CONFIG.CENTER_SPHERE.AUTO_ROTATION_Z * ticker.deltaTime;
         }
         // 구체 그리기
         drawSphere(centerSphere, sphereGraphics, camera);
@@ -348,15 +419,15 @@ async function initApp() {
             if (!point.visible)
                 return;
             // 거리에 따른 원 크기 계산
-            const circleSize = Math.max(1, 2.5 - (point.distance / 200));
+            const circleSize = Math.max(1, 4 - (point.distance / 100));
             graphics.beginFill(user.color);
             graphics.drawCircle(point.x, point.y, circleSize);
             graphics.endFill();
         });
     }
     // 트레일 생성 함수 수정 - 물방울 표면장력 효과
-    function createTrail(x, y, color, size = 2, fromSurface = false, surfaceAngle = 0) {
-        if (trails.length >= MAX_TRAILS) {
+    function createTrail(x, y, color, size = CONFIG.TRAIL.SIZE, fromSurface = false, surfaceAngle = 0) {
+        if (trails.length >= CONFIG.TRAIL.MAX_COUNT) {
             // 가장 오래된 트레일 제거
             const oldestTrail = trails.shift();
             if (oldestTrail) {
@@ -373,7 +444,7 @@ async function initApp() {
         let startPos = { x, y };
         if (fromSurface) {
             // 구체 표면에서 랜덤한 방향으로 약간 이동한 위치에서 시작
-            const surfaceOffset = 20;
+            const surfaceOffset = CONFIG.TRAIL.SURFACE_OFFSET;
             const randomAngle = surfaceAngle || Math.random() * Math.PI * 2;
             startPos = {
                 x: x + Math.cos(randomAngle) * surfaceOffset,
@@ -383,7 +454,7 @@ async function initApp() {
         const endPos = { x: centerScreenPos.x, y: centerScreenPos.y };
         // 제어점 생성 (물방울 표면장력 효과를 위한 여러 제어점)
         const controlPoints = [];
-        const segmentCount = 3; // 곡선 세그먼트 수
+        const segmentCount = CONFIG.TRAIL.CONTROL_POINTS;
         // 두 점 사이의 거리와 각도 계산
         const dx = endPos.x - startPos.x;
         const dy = endPos.y - startPos.y;
@@ -392,7 +463,7 @@ async function initApp() {
         // 물방울 효과를 위한 제어점 생성
         for (let i = 1; i <= segmentCount; i++) {
             const ratio = i / (segmentCount + 1);
-            const deviation = (Math.random() - 0.5) * distance * 0.5;
+            const deviation = (Math.random() - 0.5) * distance * CONFIG.TRAIL.DEVIATION_FACTOR;
             const perpAngle = angle + Math.PI / 2;
             controlPoints.push({
                 x: startPos.x + dx * ratio + Math.cos(perpAngle) * deviation,
@@ -403,7 +474,7 @@ async function initApp() {
         container.addChildAt(trail, container.children.indexOf(orbitContainer));
         trails.push({
             graphics: trail,
-            life: 1, // 수명 약간 줄임 (2초에서 1.5초로)
+            life: CONFIG.TRAIL.LIFE_SPAN,
             startPos,
             endPos,
             controlPoints,
@@ -419,7 +490,7 @@ async function initApp() {
             // 트레일 그래픽 업데이트
             trail.graphics.clear();
             // 생명 비율 계산 (0~1)
-            const lifeRatio = Math.max(0, Math.min(1, trail.life / 2));
+            const lifeRatio = Math.max(0, Math.min(1, trail.life / CONFIG.TRAIL.LIFE_SPAN));
             // 애니메이션 진행에 따른 중앙으로의 이동 비율
             const animationRatio = 1 - lifeRatio;
             // 시작점은 고정, 제어점들은 중앙으로 이동
@@ -432,12 +503,12 @@ async function initApp() {
                 };
             });
             // 투명도 계산
-            const alpha = lifeRatio * 0.3;
+            const alpha = lifeRatio * CONFIG.TRAIL.ALPHA;
             // 베지어 곡선 그리기 (물방울 효과)
             if (lifeRatio > 0) {
                 // 베지어 곡선 시작
                 trail.graphics.lineStyle({
-                    width: trail.size * lifeRatio * 1.2,
+                    width: trail.size * lifeRatio * CONFIG.TRAIL.LINE_WIDTH_MULTIPLIER,
                     color: trail.color,
                     alpha: alpha
                 });
@@ -450,7 +521,7 @@ async function initApp() {
                     const start = pointsToRender[j];
                     const end = pointsToRender[j + 1];
                     // 중간 제어점 계산
-                    const tension = 0.1; // 곡선의 굴곡 강도
+                    const tension = CONFIG.TRAIL.TENSION;
                     const cp1 = j > 0 ? {
                         x: start.x + (end.x - pointsToRender[j - 1].x) * tension,
                         y: start.y + (end.y - pointsToRender[j - 1].y) * tension
@@ -486,15 +557,15 @@ async function initApp() {
     function updateOrbits(deltaTime) {
         for (const user of connectedUsers) {
             // 궤도 반경 (거리)
-            const orbitRadius = 200;
+            const orbitRadius = CONFIG.USER_SPHERE.ORBIT_RADIUS;
             // 자이로스코프 값을 라디안으로 변환
             const alphaRad = user.orbit.alpha * (Math.PI / 180);
             const betaRad = user.orbit.beta * (Math.PI / 90);
             const gammaRad = user.orbit.gamma * (Math.PI / 180);
             // 회전 계산
-            const x = orbitRadius * Math.sin(alphaRad) * Math.cos(betaRad * 0.5);
-            const z = orbitRadius * Math.cos(alphaRad) * Math.cos(betaRad * 0.5);
-            const y = orbitRadius * Math.sin(betaRad * 0.5);
+            const x = orbitRadius * Math.sin(alphaRad) * Math.cos(betaRad * CONFIG.USER_SPHERE.BETA_MULTIPLIER);
+            const z = orbitRadius * Math.cos(alphaRad) * Math.cos(betaRad * CONFIG.USER_SPHERE.BETA_MULTIPLIER);
+            const y = orbitRadius * Math.sin(betaRad * CONFIG.USER_SPHERE.BETA_MULTIPLIER);
             // 위치 및 크기 업데이트
             if (user.orbitGraphics) {
                 const graphics = user.orbitGraphics.baseObject;
@@ -505,11 +576,10 @@ async function initApp() {
                 const screenPos = projectPoint(x, y, z, camera);
                 if (screenPos) {
                     // 구체 표면에서 여러 트레일 생성
-                    for (let i = 0; i < 2; i++) {
+                    for (let i = 0; i < CONFIG.TRAIL.TRAILS_PER_FRAME; i++) {
                         // 구체 표면의 랜덤한 각도
                         const surfaceAngle = Math.random() * Math.PI * 2;
-                        createTrail(screenPos.x, screenPos.y, user.color, 3, // 크기 약간 증가
-                        true, // 표면에서 시작
+                        createTrail(screenPos.x, screenPos.y, user.color, CONFIG.TRAIL.SIZE, true, // 표면에서 시작
                         surfaceAngle);
                     }
                 }
@@ -635,6 +705,11 @@ async function initApp() {
             graphics.drawCircle(point.x, point.y, circleSize);
             graphics.endFill();
         });
+    }
+    // 사용자 수에 따른 배경 강도 업데이트
+    function updateBackgroundIntensity() {
+        const userIntensity = Math.min(connectedUsers.length / CONFIG.BACKGROUND.MAX_USERS_FOR_INTENSITY, 1);
+        backgroundElement.style.opacity = (0.3 + userIntensity * 0.7).toString();
     }
     window.addEventListener('resize', () => {
         container.position.set(app.screen.width / 2, app.screen.height / 2);
