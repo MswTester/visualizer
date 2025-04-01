@@ -208,9 +208,9 @@
             }
             
             function handleOrientation(event) {
-                const alpha = event.alpha ? Math.round(event.alpha) : 0;
-                const beta = event.beta ? Math.round(event.beta) : 0;
-                const gamma = event.gamma ? Math.round(event.gamma) : 0;
+                const alpha = event.alpha ? -Math.round(event.alpha) : 0;
+                const beta = event.beta ? -Math.round(event.beta) : 0;
+                const gamma = event.gamma ? -Math.round(event.gamma) : 0;
 
                 handleMotion(alpha, beta, gamma);
             }

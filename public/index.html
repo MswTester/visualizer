@@ -8,8 +8,32 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.8.1/dist/pixi.min.js"></script>
     <!-- <script src="https://cdn.jsdelivr.net/npm/pixi-filters@latest/dist/browser/pixi-filters.min.js"></script> -->
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 </head>
 <body>
+    <div id="qr-container">
+        <div id="qr-code"></div>
+        <div id="qr-text">모바일로 참여하기</div>
+    </div>
     <script src="main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 현재 URL을 기반으로 모바일 참여 URL 생성
+            const currentURL = window.location.origin;
+            const mobileURL = currentURL + '/mobile';
+            
+            // QR 코드 생성
+            QRCode.toCanvas(document.getElementById('qr-code'), mobileURL, {
+                width: 80,
+                margin: 1,
+                color: {
+                    dark: '#ffffff',
+                    light: '#00000000'
+                }
+            }, function (error) {
+                if (error) console.error(error);
+            });
+        });
+    </script>
 </body>
 </html>

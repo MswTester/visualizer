@@ -15,3 +15,34 @@ html, body{
 canvas {
     display: block;
 }
+
+#qr-container {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 100;
+    transition: opacity 0.3s ease;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    padding: 10px;
+    opacity: 0.6;
+}
+
+#qr-container:hover {
+    opacity: 1;
+}
+
+#qr-code {
+    margin-bottom: 5px;
+}
+
+#qr-text {
+    color: #fff;
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    opacity: 0.8;
+}
